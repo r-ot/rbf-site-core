@@ -12,6 +12,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 		return;
 	}
 
+
+	const renderStrengths = (strengthsElement, strengthsTextElement, values) => {
+
+		const strengths = Array.isArray(values) ? values : [];
+
+		if (strengthsElement) {
+			strengthsElement.innerHTML = '';
+
+			strengths.forEach((strength) => {
+				const badge = document.createElement('span');
+
+				badge.classList.add('rbf-product-family-item__strength');
+				badge.textContent = strength;
+
+				strengthsElement.appendChild(badge);
+			});
+		}
+
+		if (strengthsTextElement) {
+			strengthsTextElement.textContent = strengths.join(', ');
+		}
+	};
+
+
 	for (const container of containers) {
 
 		const endpoint = container.dataset.endpoint;
@@ -36,6 +60,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 			container.innerHTML = '';
 
+			const familyElements = new Map();
+
+
+			/*
+			 * Erst alle vorhandenen Daten sofort rendern.
+			 */
 			data.items.forEach((item) => {
 
 				const fragment = template.content.cloneNode(true);
@@ -53,28 +83,77 @@ document.addEventListener('DOMContentLoaded', async () => {
 					title.textContent = item.name;
 				}
 
-				if (strengths && Array.isArray(item.strengths)) {
+				renderStrengths(
+					strengths,
+					strengthsText,
+					item.strengths
+				);
 
-					item.strengths.forEach((strength) => {
-
-						const badge = document.createElement('span');
-
-						badge.classList.add('rbf-product-family-item__strength');
-						badge.textContent = strength;
-
-						strengths.appendChild(badge);
-					});
-				}
-
-				if (strengthsText && Array.isArray(item.strengths)) {
-					strengthsText.textContent = item.strengths.join(', ');
-				}
+				familyElements.set(String(item.id), {
+					strengths,
+					strengthsText,
+				});
 
 				container.appendChild(fragment);
 			});
+
+
+			/*
+			 * Ungelernte Families danach sequenziell lernen.
+			 */
+			const unlearnedItems = data.items.filter((item) => {
+				return (
+					item.index
+					&& item.index.learned === false
+					&& item.learn_url
+				);
+			});
+
+
+			for (const item of unlearnedItems) {
+
+				try {
+
+					const learnResponse = await fetch(item.learn_url, {
+						method: 'POST',
+					});
+
+					if (!learnResponse.ok) {
+						console.warn(
+							'RBF Product Family learn:',
+							item.name,
+							learnResponse.status
+						);
+
+						continue;
+					}
+
+					const learnedData = await learnResponse.json();
+
+					const elements = familyElements.get(String(item.id));
+
+					if (!elements) {
+						continue;
+					}
+
+					renderStrengths(
+						elements.strengths,
+						elements.strengthsText,
+						learnedData.strengths
+					);
+
+				} catch (error) {
+					console.error(
+						'RBF Product Family learn:',
+						item.name,
+						error
+					);
+				}
+			}
 
 		} catch (error) {
 			console.error('RBF Product Families:', error);
 		}
 	}
+
 });

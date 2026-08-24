@@ -1,28 +1,67 @@
 # RBF Site Core
 
-Site-spezifische Datenstrukturen, REST-Endpunkte und Fallback-Registrierungen für den WooCommerce-Shop.
+Site-spezifische Datenstrukturen, Datenlogik, REST-Endpunkte und Fallback-Registrierungen für das SOMA WooCommerce-Projekt.
 
 ## Architektur
 
 Grundsätzliche Trennung:
 
-- **Plugin** = Daten, Businesslogik, REST-Endpunkte
-- **Theme** = Darstellung, CSS, JavaScript, HTML-`<template>`-Strukturen
+* **WooCommerce / WordPress** = Source of Truth
+* **Plugin** = Datenlogik, Aggregationen, REST und funktionale Komponenten
+* **Theme** = Darstellung, CSS, Template-Overrides und projektspezifisches Markup
 
 REST-Endpunkte liefern grundsätzlich strukturierte JSON-Daten und kein fertiges HTML.
 
-Die Darstellung dynamischer Inhalte erfolgt im Child Theme über native HTML-`<template>`-Elemente mit `data-*`-Attributen.
+Businesslogik soll unabhängig von REST und Theme wiederverwendbar bleiben.
 
-### Ownership der Product-Family-Komponente
+---
 
-Das Plugin besitzt die funktionale Product-Family-Komponente:
-- Shortcode / Mount-Point
-- REST-Endpunkt
-- Fetch-/DOM-JavaScript
-- Default-Template als Fallback
-Das Child Theme besitzt die projektspezifische Darstellung.
-Das Plugin-JavaScript arbeitet ausschließlich mit `data-*`-Hooks und ist dadurch nicht von den CSS-Klassen des Themes abhängig.
-Der REST-Endpunkt wird vom Shortcode über `data-endpoint` an das JavaScript übergeben. Das JavaScript enthält daher keine fest codierte WordPress-REST-URL.
+## Interne Daten-Aliases
+
+Externe WooCommerce-/ERP-Keys sollen möglichst nicht direkt im restlichen Projekt verwendet werden.
+
+Dafür existiert:
+
+```text
+RbfSiteCoreDataKeys
+```
+
+Verbindliche interne Aliases:
+
+```text
+tire_dimension
+chain_strength
+```
+
+Aktuelles Mapping der Testdaten:
+
+```text
+tire_dimension
+→ tire_dimension_fit
+
+chain_strength
+→ gliederstaerke
+```
+
+Die Product-Family-Taxonomie wird ebenfalls über das zentrale Key-Mapping aufgelöst.
+
+Aktuell:
+
+```text
+product_family
+→ product_family
+```
+
+Wenn das ERP später andere finale Keys liefert, sollen möglichst nur die zentralen Mappings geändert werden.
+
+Die internen Aliases:
+
+```text
+tire_dimension
+chain_strength
+```
+
+bleiben stabil.
 
 ---
 
@@ -38,199 +77,533 @@ rbf-site-core/
 ├── inc/
 │   ├── class-rbf-site-core.php
 │   ├── class-rbf-site-core-rest.php
-│   └── class-rbf-site-core-shortcodes.php
+│   ├── class-rbf-site-core-shortcodes.php
+│   ├── data/
+│   │   ├── class-rbf-site-core-data-keys.php
+│   │   ├── class-rbf-site-core-products.php
+│   │   └── class-rbf-site-core-family-index.php
+│   └── admin/
+│       └── class-rbf-site-core-family-admin.php
 └── templates/
     └── product-family-item.php
-
 ```
 
-## Taxonomies
-product_family
+Die Core-Klasse ist der zentrale Bootstrap/Coordinator.
+
+Hook-basierte Module werden dort einmal instanziert.
+
+Stateless Data-/Helper-Klassen arbeiten aktuell über statische Methoden.
+
+---
+
+## Taxonomie `product_family`
+
 Custom Taxonomy für WooCommerce-Produkte.
-Registrierung:
+
+Aktuelle Registrierung:
+
+```text
 Object Type: product
 Public: true
 Hierarchical: true
 REST: true
 Rewrite Slug: product-family
+```
 
-Die Taxonomie wird nur als Fallback registriert:
-if (taxonomy_exists('product_family')) {
-    return;
+Die Taxonomie wird nur als Fallback registriert.
+
+Existiert sie bereits, registriert `rbf-site-core` sie nicht erneut.
+
+Der konkrete Taxonomie-Key wird über `RbfSiteCoreDataKeys` aufgelöst.
+
+---
+
+## Generische Produkt-Datenlogik
+
+`RbfSiteCoreProducts` kapselt generische WooCommerce-Produktabfragen und Attribut-Aggregationen.
+
+Aktuelle Aufgaben:
+
+```text
+Produkte eines Terms ermitteln
+↓
+WC_Product laden
+↓
+gewünschte interne Attribut-Aliases auflösen
+↓
+Attribute auslesen
+↓
+Werte aggregieren
+↓
+unique + natürlich sortieren
+```
+
+Mehrere Attribute können in einem einzigen Produktdurchlauf aggregiert werden.
+
+Damit müssen beispielsweise:
+
+```text
+tire_dimension
+chain_strength
+```
+
+nicht jeweils separat über sämtliche Produkte einer Family berechnet werden.
+
+---
+
+# Product-Family Learned Index
+
+Aggregierte Product-Family-Daten werden persistent als Term Meta gespeichert.
+
+Meta-Key:
+
+```text
+_rbf_family_index
+```
+
+Aktueller Contract:
+
+```php
+[
+    'version'       => 1,
+    'learned_at'    => 1787571056,
+    'product_count' => 500,
+
+    'values' => [
+        'tire_dimension' => [
+            '14.9-38',
+            '16.9-34',
+            '420/85-34',
+        ],
+
+        'chain_strength' => [
+            '8.00',
+            '10.00',
+        ],
+    ],
+]
+```
+
+Wichtig:
+
+Im gespeicherten Index werden ausschließlich die stabilen internen Aliases verwendet.
+
+Externe Woo-/ERP-Keys wie:
+
+```text
+tire_dimension_fit
+gliederstaerke
+```
+
+werden dort nicht gespeichert.
+
+---
+
+## Warum ein persistenter Index?
+
+Eine Product Family kann später mehrere hundert Produkte enthalten.
+
+Eine Live-Aggregation bei jedem Frontend-Request würde beispielsweise bedeuten:
+
+```text
+500 Produkte
+× WC_Product laden
+× Attribute durchsuchen
+× mehrere Reifendimensionen sammeln
+```
+
+Das soll insbesondere den initialen Archive-/Hero-Render nicht blockieren.
+
+Stattdessen werden die abgeleiteten Daten einmal bewusst gelernt und persistent am Family-Term gespeichert.
+
+Normale Frontend-Reads greifen anschließend nur noch auf den gespeicherten Snapshot zu.
+
+---
+
+## `RbfSiteCoreFamilyIndex`
+
+Die Klasse kapselt den persistenten Family-Index.
+
+Aktuelle Kernoperationen:
+
+```text
+get($term_id)
+rebuild($term_id)
+learn($term_id)
+delete($term_id)
+```
+
+### `rebuild()`
+
+Erstellt den Snapshot unabhängig vom bisherigen Zustand vollständig neu.
+
+Dabei werden:
+
+```text
+tire_dimension
+chain_strength
+```
+
+in einem gemeinsamen Produktdurchlauf aggregiert.
+
+### `learn()`
+
+Self-Healing-Variante.
+
+Flow:
+
+```text
+Index vorhanden?
+├── ja → direkt zurückgeben
+└── nein
+    ↓
+    Lock setzen
+    ↓
+    erneut prüfen
+    ↓
+    rebuild()
+    ↓
+    Lock löschen
+```
+
+Damit darf ein bislang ungelernter Term bei Bedarf selbstständig initialisiert werden.
+
+### Lock
+
+Für Auto-Learning wird ein kurzer WordPress-Option-Lock verwendet.
+
+Ziel:
+
+Mehrere parallele Besucher sollen nicht gleichzeitig denselben teuren Rebuild starten.
+
+Der Lock besitzt zusätzlich einen TTL-Fallback, damit ein abgebrochener Request keinen dauerhaften Lock hinterlässt.
+
+---
+
+# Product-Family Admin
+
+Auf der Edit-Seite eines `product_family`-Terms existiert ein Bereich:
+
+```text
+SOMA Family-Daten
+```
+
+Aktuell angezeigt werden:
+
+* Zeitpunkt des letzten Lernens
+* Produktanzahl beim letzten Lernen
+* aktuell zugeordnete Produktanzahl
+* Anzahl gelernter Reifendimensionen
+* gelernte Gliederstärken
+* Warnung bei abweichender Produktanzahl
+
+Actions:
+
+```text
+Family-Daten neu lernen
+Gelernte Daten löschen
+```
+
+Das Löschen betrifft ausschließlich:
+
+```text
+_rbf_family_index
+```
+
+Produkt- und ERP-Daten werden nicht verändert.
+
+Bei aktivem `WP_DEBUG` kann der gespeicherte Index zusätzlich als Debug-`<pre>` ausgegeben werden.
+
+---
+
+## Future Admin UX
+
+Bei ungefähr 20–40 Product Families soll später zusätzlich eine zentrale Admin-Seite entstehen.
+
+Geplant:
+
+```text
+Product Family Data
+```
+
+mit einer tabellarischen Übersicht aller Families.
+
+Pro Family:
+
+* Name
+* aktuelle Produktanzahl
+* Produktanzahl beim letzten Lernen
+* `learned_at`
+* Anzahl Reifendimensionen
+* gelernte Gliederstärken
+* Status aktuell / möglicherweise veraltet
+* Action: neu lernen
+* Action: gelernte Daten löschen
+* ggf. Detailansicht
+
+Zusätzlich:
+
+```text
+Alle Families neu lernen
+```
+
+Diese Admin-Seite soll dieselbe `RbfSiteCoreFamilyIndex`-API verwenden und keine zweite Aggregationslogik implementieren.
+
+---
+
+# REST API
+
+## GET Product Families
+
+```text
+GET /wp-json/rbf-site-core/v1/product-families
+```
+
+Öffentlich lesbar.
+
+Der Endpoint liefert Product-Family-Terms und ihre bereits gelernten Daten.
+
+Aktueller JSON-Contract:
+
+```json
+{
+    "items": [
+        {
+            "id": 22,
+            "name": "TEMPO",
+            "slug": "tempo",
+            "url": "https://example.test/product-family/tempo/",
+            "count": 1,
+            "strengths": [
+                "8.00"
+            ],
+            "dimensions": [
+                "14.9-38",
+                "15.5-38",
+                "16.9-34"
+            ],
+            "index": {
+                "learned": true,
+                "learned_at": 1787571056,
+                "product_count": 1
+            },
+            "learn_url": "https://example.test/wp-json/rbf-site-core/v1/product-families/22/learn"
+        }
+    ]
 }
-Andere Plugins können product_family daher vorher selbst registrieren.
+```
 
-## Shortcodes
+### Ungelernte Family
 
-### `[rbf_product_families]`
+Wenn noch kein gespeicherter Index existiert:
 
-Rendert den Mount-Point für die dynamische Ausgabe der Product Families und lädt das benötigte JavaScript nur dann, wenn der Shortcode tatsächlich verwendet wird.
+```json
+{
+    "strengths": [],
+    "dimensions": [],
+    "index": {
+        "learned": false,
+        "learned_at": null,
+        "product_count": 0
+    }
+}
+```
 
-Aktuelle Ausgabe:
+Der GET-Endpoint führt in diesem Fall ausdrücklich keinen teuren Product-Rebuild durch.
+
+---
+
+## POST Product Family Learn
+
+```text
+POST /wp-json/rbf-site-core/v1/product-families/{term_id}/learn
+```
+
+Dieser Endpoint dient dem Self-Healing bislang ungelernter Product Families.
+
+Ist die Family bereits gelernt, wird der vorhandene Index zurückgegeben.
+
+Ist sie noch nicht gelernt, wird unter Lock einmalig ein Rebuild durchgeführt und gespeichert.
+
+Der Endpoint ist kein Force-Rebuild.
+
+Explizite Rebuilds bleiben Admin-Aktionen.
+
+---
+
+# `[rbf_product_families]`
+
+Der Shortcode rendert den Mount-Point der Product-Family-Landingpage und lädt das benötigte Plugin-JavaScript nur bei Verwendung der Komponente.
+
+Grundstruktur:
 
 ```html
 <div
     class="rbf-product-families"
     data-rbf-product-families
-    data-endpoint="https://example.test/wp-json/rbf-site-core/v1/product-families"
+    data-endpoint="..."
 ></div>
 ```
-Der Shortcode selbst rendert keine Product-Family-Cards.
 
+Das Plugin liefert keine projektspezifischen Cards direkt als HTML aus.
 
+---
 
-## REST API
-Product Families
-GET /wp-json/rbf-site-core/v1/product-families
-Aktuell öffentlich lesbar.
-Der Endpoint liefert die vorhandenen Terms der Taxonomie product_family.
-Aktueller JSON Contract
-{
-    "items": [
-        {
-            "id": 20,
-            "name": "SUPER STIFT",
-            "slug": "super_stift",
-            "url": "http://example.local/product-family/super_stift/",
-            "count": 1
-        }
-    ]
-}
+# Product-Family Template
 
-Aktuelle Felder:
-id – Term-ID
-name – Name der Product Family
-slug – Term-Slug
-url – Term-Archiv-URL
-count – Anzahl zugeordneter Produkte
-
-
-## Frontend Contract
-
-### Mount-Point
-
-```html
-[data-rbf-product-families]
-```
-
-Der Shortcode stellt folgenden Mount-Point bereit:
-[data-rbf-product-families]
-Das Attribut data-endpoint enthält die REST-URL, von der die Komponente ihre Daten lädt.
-
-### Product-Family-Template
 Das Plugin enthält ein Default-Template:
+
+```text
 templates/product-family-item.php
-Dieses wird nur ausgegeben, wenn [rbf_product_families] auf der aktuellen Seite tatsächlich gerendert wurde.
-Das Template wird über folgenden Filter auflösbar gemacht:
-
-rbf_product_family_template
-
-Das Child Theme kann dadurch ein eigenes Template bereitstellen, ohne die Plugin-Logik zu verändern.
-
-### Aktueller Theme-Override:
-
-twentytwentyfive-child/
-└── template-parts/
-    └── product-family-item.php
-
-Beispiel für den Theme-Filter:
-
-add_filter('rbf_product_family_template', function($template) {
-    $theme_template = get_stylesheet_directory()
-        . '/template-parts/product-family-item.php';
-    if (is_readable($theme_template)) {
-        return $theme_template;
-    }
-    return $template;
-});
-
-Das native HTML-Template verwendet folgende funktionale Hooks:
-```html
-<template data-rbf-product-family-template>
-    <article data-rbf-product-family-item>
-        <a data-rbf-family-link>
-            <h3 data-rbf-family-title></h3>
-
-
-            <div data-rbf-family-strengths></div>
-
-
-            <span data-rbf-family-strengths-text></span>
-        </a>
-    </article>
-</template>
 ```
 
-CSS-Klassen gehören zur Darstellung und dürfen vom Theme unabhängig von diesen data-*-Hooks geändert werden.
+Dieses wird über:
 
-## JavaScript-Flow
+```text
+rbf_product_family_template
+```
 
-assets/js/product-families.js:
-findet [data-rbf-product-families]
-liest den REST-Endpunkt aus data-endpoint
-lädt die Product Families als JSON
-findet [data-rbf-product-family-template]
-klont template.content mit cloneNode(true)
-befüllt die geklonten Elemente über data-*-Hooks
-hängt die fertigen Cards in den Mount-Point ein
+filterbar gemacht.
 
-REST/API liefert ausschließlich Daten.
+Das Child Theme verwendet aktuell:
 
-Plugin-JavaScript übernimmt die funktionale DOM-Erzeugung.
+```text
+template-parts/product-family-item.php
+```
 
-Das Child Theme bestimmt das visuelle Markup und Styling.
+als Override.
 
+Funktionale DOM-Hooks bleiben `data-*`-Attribute.
 
-## Geplante Product-Family-Daten
+CSS-Klassen gehören ausschließlich zur Präsentation und können im Theme geändert werden.
 
-Der JSON Contract soll schrittweise erweitert werden.
+---
 
-Geplant:
+# JavaScript-Flow
 
-{
-	"items": [
-		{
-			"id": 20,
-			"name": "SUPER STIFT",
-			"slug": "super_stift",
-			"url": "http://example.local/product-family/super_stift/",
-			"count": 1,
-			"strengths": [
-				"11",
-				"14",
-				"16"
-			]
-		}
-	]
-}
+`assets/js/product-families.js`
 
-## "strengths"
-- `strengths` – eindeutige Gliedstärken der Produkte innerhalb dieser Product Family
+Flow:
 
-### Ermittlung von `strengths`
-Im aktuellen Prototyp werden die Werte zur Laufzeit aus den WooCommerce-Produkten der jeweiligen `product_family` ermittelt.
-Quelle ist das Produktattribut:
-`gliederstaerke`
-Die aktuelle Implementierung dient der Frontend-/API-Entwicklung. Die interne Datenquelle darf später durch eine optimierte Relation oder Lookup-Tabelle ersetzt werden, solange der JSON Contract erhalten bleibt.
-Soll die verfügbaren Gliedstärken aller Produkte einer Product Family enthalten.
+```text
+[data-rbf-product-families]
+↓
+GET Product-Family REST
+↓
+alle Cards sofort aus aktuellem Snapshot rendern
+↓
+ungelernte Families erkennen
+↓
+sequenziell lernen
+↓
+je Family POST learn_url
+↓
+gelernte Strengths in bestehende Card übernehmen
+```
 
-Für den aktuellen Prototyp werden diese Werte direkt aus den zugeordneten WooCommerce-Produkten ermittelt.
+Ungelernten Families werden bewusst sequenziell verarbeitet.
 
-Die endgültige Datenarchitektur kann später geändert werden, ohne den JSON Contract oder das Frontend ändern zu müssen.
+Damit starten bei vielen neuen Families nicht gleichzeitig zahlreiche teure WooCommerce-Aggregationen.
 
+Bereits gelernte Families verursachen keine Learn-Requests.
+
+---
+
+# Data Ownership
+
+ERP bzw. externe Importlogik bleibt Datenhoheit für:
+
+* Produkte
+* Produktattribute
+* Zuordnung zur `product_family`
+* gegebenenfalls Erstellung der Product-Family-Terms
+
+SOMA / `rbf-site-core` besitzt ausschließlich die daraus abgeleiteten Frontend-/UX-Daten.
+
+Das gespeicherte:
+
+```text
+_rbf_family_index
+```
+
+ist daher ein SOMA-interner Derived-Data-Index und keine konkurrierende Produktdatenquelle.
+
+Dadurch kann das Frontend unabhängig optimiert werden, ohne Änderungen am ERP-Importflow vorauszusetzen.
+
+---
+
+# Product-Family Archive
+
+Das Child Theme besitzt inzwischen ein eigenes:
+
+```text
+templates/taxonomy-product_family.html
+```
+
+Der Family-Hero ist grundsätzlich an das bestehende Hero-System angebunden.
+
+Der nächste Schritt ist:
+
+* Name/Beschreibung weiterhin serverseitig
+* aggregierte Dimensionen nicht mehr teuer im initialen Render berechnen
+* Dimensionen asynchron über REST laden
+* zunächst drei Dimensionen anzeigen
+* restliche Dimensionen über eine Expand-Action sichtbar machen
+
+Danach folgt das serverseitige Product Grid mit wiederverwendbaren Product Cards.
+
+---
 
 # Roadmap
 
-- [x] `product_family` als Fallback-Taxonomie registrieren
-- [x] REST-Endpoint für Product Families
-- [x] `strengths` im Product-Family-Endpoint ergänzen
-- [x] Shortcode `[rbf_product_families]`
-- [x] Product-Family-JavaScript ins Plugin verschieben
-- [x] REST-Endpoint über `data-endpoint` an die Komponente übergeben
-- [x] Default-`<template>` im Plugin
-- [x] filterbarer Theme-Override für das Product-Family-Template
-- [ ] Product-Family-Template nach Figma stylen
-- [ ] Product-Family-Bild integrieren
-- [ ] Einsatzbereiche / Icons integrieren
-- [ ] Product-Item-REST-Endpoint
-- [ ] Product-Item-`<template>`
+## Product-Family Basis
+
+* [x] `product_family` als Fallback-Taxonomie registrieren
+* [x] `[rbf_product_families]`
+* [x] REST-Endpoint
+* [x] Default-`<template>`
+* [x] Theme-Override
+* [x] Plugin-JavaScript
+
+## Datenarchitektur
+
+* [x] zentrale Data-Key-Mappings
+* [x] stabile Aliases `tire_dimension` und `chain_strength`
+* [x] generische Product-Query-/Attribute-Logik
+* [x] mehrere Attribute in einem Produktdurchlauf aggregieren
+* [x] persistenter Family-Index
+* [x] manueller Rebuild
+* [x] manueller Delete
+* [x] Auto-Learn mit Lock
+* [x] REST liest Learned-Daten statt Live-Aggregation
+* [x] Self-Healing der Landingpage
+
+## Product-Family Archive
+
+* [x] eigenes Taxonomy-Archive
+* [x] bestehendes Hero-System verwenden
+* [x] Term-Name und Beschreibung
+* [x] Reifendimensionen als Learned Data verfügbar
+* [ ] Hero-Dimensionen async
+* [ ] 3 Werte + Expand
+* [ ] Product Grid
+* [ ] Product Cards
+
+## Später
+
+* [ ] zentrale Family-Data-Adminseite
+* [ ] „Alle Families neu lernen“
+* [ ] Product Single
+* [ ] interaktive Reifendimensionsfilter
+* [ ] Product-Item-REST-Contract
+* [ ] ERP-/Import-abhängige Optimierungen nur wenn tatsächlich nötig
+
+---
+
+## Version
+
+Aktuell:
+
+```text
+0.2.0
+```

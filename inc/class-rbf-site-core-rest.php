@@ -10,6 +10,7 @@ class RbfSiteCoreRest {
 
 	public function register_routes() {
 
+		//gET families
 		register_rest_route(
 			'rbf-site-core/v1',
 			'/product-families',
@@ -19,12 +20,38 @@ class RbfSiteCoreRest {
 				'permission_callback' => '__return_true',
 			]
 		);
+
+		//post learn
+		register_rest_route(
+			'rbf-site-core/v1',
+			'/product-families/(?P<term_id>\d+)/learn',
+			[
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => [$this, 'learn_product_family'],
+				'permission_callback' => '__return_true',
+			]
+		);
 	}
+
 
 	public function get_product_families() {
 
+		$taxonomy = RbfSiteCoreDataKeys::get_taxonomy_key(
+			RbfSiteCoreDataKeys::TAXONOMY_PRODUCT_FAMILY
+		);
+
+		if ($taxonomy === '') {
+			return new WP_Error(
+				'rbf_product_family_taxonomy_missing',
+				'Product Family taxonomy mapping is missing.',
+				[
+					'status' => 500,
+				]
+			);
+		}
+
 		$terms = get_terms([
-			'taxonomy'   => 'product_family',
+			'taxonomy'   => $taxonomy,
 			'hide_empty' => false,
 		]);
 
@@ -48,13 +75,46 @@ class RbfSiteCoreRest {
 				continue;
 			}
 
+			$index = RbfSiteCoreFamilyIndex::get((int) $term->term_id);
+
+			$is_learned = isset(
+				$index['version'],
+				$index['learned_at'],
+				$index['values']
+			);
+
+			$values = $is_learned && is_array($index['values'])
+				? $index['values']
+				: [];
+
 			$items[] = [
 				'id'    => (int) $term->term_id,
 				'name'  => $term->name,
 				'slug'  => $term->slug,
 				'url'   => $term_link,
 				'count' => (int) $term->count,
-				'strengths' => $this->get_product_family_strengths((int) $term->term_id),
+
+				'learn_url' => rest_url(
+					'rbf-site-core/v1/product-families/' . (int) $term->term_id . '/learn'
+				),
+
+				'strengths' => $values[
+					RbfSiteCoreDataKeys::ATTRIBUTE_CHAIN_STRENGTH
+				] ?? [],
+
+				'dimensions' => $values[
+					RbfSiteCoreDataKeys::ATTRIBUTE_TIRE_DIMENSION
+				] ?? [],
+
+				'index' => [
+					'learned'       => $is_learned,
+					'learned_at'    => $is_learned
+						? (int) $index['learned_at']
+						: null,
+					'product_count' => $is_learned
+						? (int) ($index['product_count'] ?? 0)
+						: 0,
+				],
 			];
 		}
 
@@ -63,50 +123,69 @@ class RbfSiteCoreRest {
 		]);
 	}
 
-	private function get_product_family_strengths($term_id) {
-		if (!function_exists('wc_get_product')) {
-			return [];
-		}
-		$product_ids = get_posts([
-			'post_type'      => 'product',
-			'post_status'    => 'publish',
-			'posts_per_page' => -1,
-			'fields'         => 'ids',
-			'tax_query'      => [
+
+
+	//LEARN
+	//LEARN
+	//LEARN
+	//LEARN
+	public function learn_product_family(WP_REST_Request $request) {
+
+		$term_id = absint($request->get_param('term_id'));
+
+		if (!$term_id) {
+			return new WP_Error(
+				'rbf_product_family_invalid_term',
+				'Invalid Product Family term ID.',
 				[
-					'taxonomy' => 'product_family',
-					'field'    => 'term_id',
-					'terms'    => $term_id,
-				],
+					'status' => 400,
+				]
+			);
+		}
+
+		$taxonomy = RbfSiteCoreDataKeys::get_taxonomy_key(
+			RbfSiteCoreDataKeys::TAXONOMY_PRODUCT_FAMILY
+		);
+
+		$term = get_term($term_id, $taxonomy);
+
+		if (is_wp_error($term) || !$term instanceof WP_Term) {
+			return new WP_Error(
+				'rbf_product_family_not_found',
+				'Product Family not found.',
+				[
+					'status' => 404,
+				]
+			);
+		}
+
+		$index = RbfSiteCoreFamilyIndex::learn($term_id);
+
+		if (is_wp_error($index)) {
+			return $index;
+		}
+
+		$values = isset($index['values']) && is_array($index['values'])
+			? $index['values']
+			: [];
+
+		return rest_ensure_response([
+			'id' => $term_id,
+
+			'strengths' => $values[
+				RbfSiteCoreDataKeys::ATTRIBUTE_CHAIN_STRENGTH
+			] ?? [],
+
+			'dimensions' => $values[
+				RbfSiteCoreDataKeys::ATTRIBUTE_TIRE_DIMENSION
+			] ?? [],
+
+			'index' => [
+				'learned'       => true,
+				'learned_at'    => (int) ($index['learned_at'] ?? 0),
+				'product_count' => (int) ($index['product_count'] ?? 0),
 			],
 		]);
-
-		$strengths = [];
-
-		foreach ($product_ids as $product_id) {
-			$product = wc_get_product($product_id);
-			if (!$product) {
-				continue;
-			}
-
-			$attributes = $product->get_attributes();
-			foreach ($attributes as $attribute) {
-				$attribute_name = sanitize_title($attribute->get_name());
-				if ($attribute_name !== 'gliederstaerke') {
-					continue;
-				}
-				foreach ($attribute->get_options() as $option) {
-					$option = trim((string) $option);
-					if ($option !== '') {
-						$strengths[] = $option;
-					}
-				}
-			}
-		}
-
-		$strengths = array_values(array_unique($strengths));
-		natsort($strengths);
-
-		return array_values($strengths);
 	}
+
 }
