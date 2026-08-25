@@ -11,9 +11,14 @@ class RbfSiteCoreDataKeys {
 
 
 	private const ATTRIBUTE_KEYS = [
-		self::ATTRIBUTE_TIRE_DIMENSION => 'tire_dimension_fit',
-		self::ATTRIBUTE_CHAIN_STRENGTH => 'gliederstaerke',
-	];
+		self::ATTRIBUTE_TIRE_DIMENSION => [
+			'tire_dimension_fit',
+			'dimension',
+		],
+		self::ATTRIBUTE_CHAIN_STRENGTH => [
+			'gliederstaerke',
+		],
+];
 
 
 	private const TAXONOMY_KEYS = [
@@ -23,7 +28,17 @@ class RbfSiteCoreDataKeys {
 
 	public static function get_attribute_key($key) {
 
-		return self::ATTRIBUTE_KEYS[$key] ?? '';
+		$keys = self::get_attribute_keys($key);
+
+		return $keys[0] ?? '';
+	}
+
+
+	public static function get_attribute_keys($key) {
+
+		$keys = self::ATTRIBUTE_KEYS[$key] ?? [];
+
+		return is_array($keys) ? $keys : [];
 	}
 
 
@@ -33,14 +48,29 @@ class RbfSiteCoreDataKeys {
 	}
 
 
-	public static function matches_attribute($attribute_name, $key) {
+	public static function get_matching_attribute_key($attribute_name, $key) {
 
-		$mapped_key = self::get_attribute_key($key);
+		$attribute_name = sanitize_title($attribute_name);
 
-		if ($mapped_key === '') {
-			return false;
+		if (str_starts_with($attribute_name, 'pa_')) {
+			$attribute_name = substr($attribute_name, 3);
 		}
 
-		return sanitize_title($attribute_name) === sanitize_title($mapped_key);
+		foreach (self::get_attribute_keys($key) as $mapped_key) {
+
+			$mapped_key = sanitize_title($mapped_key);
+
+			if ($attribute_name === $mapped_key) {
+				return $mapped_key;
+			}
+		}
+
+		return '';
+	}
+
+
+	public static function matches_attribute($attribute_name, $key) {
+
+		return self::get_matching_attribute_key($attribute_name, $key) !== '';
 	}
 }

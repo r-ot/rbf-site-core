@@ -20,8 +20,16 @@ Interne stabile Aliases:
 
 Aktuelles Mapping:
 
-    tire_dimension → tire_dimension_fit
-    chain_strength → gliederstaerke
+    tire_dimension
+	→ tire_dimension_fit (Primärkey)
+	→ dimension (Fallback pro Produkt)
+
+	chain_strength
+	→ gliederstaerke
+
+
+Wichtig dabei: Der Fallback gilt pro Produkt. Ein Produkt mit tire_dimension_fit verwendet diesen Key; fehlt er dort, wird dimension probiert. Dadurch funktionieren gemischte Importstände. (0.2.2)
+
 
 Product-Family-Taxonomie:
 
@@ -185,4 +193,4 @@ Als Nächstes:
 
 ## Version
 
-    0.2.1
+    0.2.2

@@ -69,6 +69,7 @@ class RbfSiteCoreProducts {
 
 
 	//unser eigener kleiner "cache" für die reifendimensionen
+	//patched in 0.2.2
 	public static function get_attribute_options_by_products($product_ids, $attributes) {
 
 		if (
@@ -83,7 +84,7 @@ class RbfSiteCoreProducts {
 
 		foreach ($attributes as $attribute) {
 
-			if (RbfSiteCoreDataKeys::get_attribute_key($attribute) === '') {
+			if (empty(RbfSiteCoreDataKeys::get_attribute_keys($attribute))) {
 				continue;
 			}
 
@@ -102,14 +103,27 @@ class RbfSiteCoreProducts {
 				continue;
 			}
 
+			$product_values = [];
+
+			foreach (array_keys($values) as $attribute) {
+
+				$product_values[$attribute] = [];
+
+				foreach (RbfSiteCoreDataKeys::get_attribute_keys($attribute) as $attribute_key) {
+					$product_values[$attribute][$attribute_key] = [];
+				}
+			}
+
 			foreach ($product->get_attributes() as $product_attribute) {
 
 				foreach (array_keys($values) as $attribute) {
 
-					if (!RbfSiteCoreDataKeys::matches_attribute(
+					$matched_key = RbfSiteCoreDataKeys::get_matching_attribute_key(
 						$product_attribute->get_name(),
 						$attribute
-					)) {
+					);
+
+					if ($matched_key === '') {
 						continue;
 					}
 
@@ -118,9 +132,27 @@ class RbfSiteCoreProducts {
 						$option = trim((string) $option);
 
 						if ($option !== '') {
-							$values[$attribute][] = $option;
+							$product_values[$attribute][$matched_key][] = $option;
 						}
 					}
+				}
+			}
+
+			foreach ($product_values as $attribute => $attribute_candidates) {
+
+				foreach (RbfSiteCoreDataKeys::get_attribute_keys($attribute) as $attribute_key) {
+
+					$options = $attribute_candidates[$attribute_key] ?? [];
+
+					if (empty($options)) {
+						continue;
+					}
+
+					foreach ($options as $option) {
+						$values[$attribute][] = $option;
+					}
+
+					break;
 				}
 			}
 		}
