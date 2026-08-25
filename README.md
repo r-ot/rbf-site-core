@@ -20,9 +20,10 @@ Interne stabile Aliases:
 
 Aktuelles Mapping:
 
-    tire_dimension
-	→ tire_dimension_fit (Primärkey)
-	→ dimension (Fallback pro Produkt)
+   tire_dimension
+	→ tire_dimension_fit
+	→ dimension
+	→ dimensionen
 
 	chain_strength
 	→ gliederstaerke

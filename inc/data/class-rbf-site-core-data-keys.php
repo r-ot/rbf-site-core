@@ -14,6 +14,7 @@ class RbfSiteCoreDataKeys {
 		self::ATTRIBUTE_TIRE_DIMENSION => [
 			'tire_dimension_fit',
 			'dimension',
+			'dimensionen',
 		],
 		self::ATTRIBUTE_CHAIN_STRENGTH => [
 			'gliederstaerke',
