@@ -41,44 +41,20 @@ class RbfSiteCore {
 		 * product_family selbst zu registrieren.
 		 */
 		add_action('init', [$this, 'register_product_family_taxonomy'], 99);
+
+		add_action('wp_enqueue_scripts', [$this, 'register_assets']);
 	}
 
-	// public function register_product_family_taxonomy() {
+	public function register_assets() {
+		wp_register_script(
+			'rbf-site-core-product-family-data',
+			RBF_SITE_CORE_URL . 'assets/js/product-family-data.js',
+			[],
+			RBF_SITE_CORE_VERSION,
+			true
+		);
+	}
 
-	// 	if (taxonomy_exists('product_family')) {
-	// 		return;
-	// 	}
-
-	// 	$labels = [
-	// 		'name'              => 'Product Families',
-	// 		'singular_name'     => 'Product Family',
-	// 		'search_items'      => 'Search Product Families',
-	// 		'all_items'         => 'All Product Families',
-	// 		'parent_item'       => 'Parent Product Family',
-	// 		'parent_item_colon' => 'Parent Product Family:',
-	// 		'edit_item'         => 'Edit Product Family',
-	// 		'update_item'       => 'Update Product Family',
-	// 		'add_new_item'      => 'Add New Product Family',
-	// 		'new_item_name'     => 'New Product Family Name',
-	// 		'menu_name'         => 'Product Families',
-	// 	];
-
-	// 	register_taxonomy(
-	// 		'product_family',
-	// 		['product'],
-	// 		[
-	// 			'labels'            => $labels,
-	// 			'public'            => true,
-	// 			'hierarchical'      => true,
-	// 			'show_ui'           => true,
-	// 			'show_admin_column' => true,
-	// 			'show_in_rest'      => true,
-	// 			'rewrite'           => [
-	// 				'slug' => 'product-family',
-	// 			],
-	// 		]
-	// 	);
-	// }
 	public function register_product_family_taxonomy() {
 		$taxonomy = RbfSiteCoreDataKeys::get_taxonomy_key(
 			RbfSiteCoreDataKeys::TAXONOMY_PRODUCT_FAMILY
