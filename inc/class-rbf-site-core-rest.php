@@ -87,7 +87,7 @@ class RbfSiteCoreRest {
 				? $index['values']
 				: [];
 
-			$items[] = [
+			$item = [
 				'id'    => (int) $term->term_id,
 				'name'  => $term->name,
 				'slug'  => $term->slug,
@@ -116,6 +116,14 @@ class RbfSiteCoreRest {
 						: 0,
 				],
 			];
+
+			$item = apply_filters(
+				'rbf_site_core_product_family_rest_item',
+				$item,
+				$term
+			);
+
+			$items[]=$item;
 		}
 
 		return rest_ensure_response([

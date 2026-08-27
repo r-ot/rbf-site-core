@@ -7,8 +7,12 @@ defined('ABSPATH') || exit;
 	<article class="rbf-product-family-item" data-rbf-product-family-item>
 		<a class="rbf-product-family-item__link" href="" data-rbf-family-link>
 
-			<div class="rbf-product-family-item__image">
-				<div class="rbf-product-family-item__image-placeholder">
+			<div class="rbf-product-family-item__image rbf-img-wrap">
+				<figure class="rot-img-relative rbf-product-family-item__img" hidden data-rbf-product-family-image>
+					<img src="" alt="" loading="lazy" decoding="async" data-rbf-product-family-image-src>
+				</figure>
+
+				<div class="rbf-product-family-item__image-placeholder" data-rbf-product-family-image-placeholder>
 					Product Family
 				</div>
 			</div>

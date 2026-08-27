@@ -75,6 +75,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 				const strengths = fragment.querySelector('[data-rbf-family-strengths]');
 				const strengthsText = fragment.querySelector('[data-rbf-family-strengths-text]');
 
+				const imageFigure = fragment.querySelector('[data-rbf-product-family-image]');
+				const image = fragment.querySelector('[data-rbf-product-family-image-src]');
+				const imagePlaceholder = fragment.querySelector('[data-rbf-product-family-image-placeholder]');
+
 				if (link) {
 					link.href = item.url;
 				}
@@ -93,6 +97,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 					strengths,
 					strengthsText,
 				});
+
+				if (item.xr_preview_url && imageFigure && image) {
+					image.src = item.xr_preview_url;
+					image.alt = item.name || '';
+
+					imageFigure.hidden = false;
+
+					if (imagePlaceholder) {
+						imagePlaceholder.hidden = true;
+					}
+				} else {
+					if (imageFigure) {
+						imageFigure.hidden = true;
+					}
+
+					if (imagePlaceholder) {
+						imagePlaceholder.hidden = false;
+					}
+				}
+
+
 
 				container.appendChild(fragment);
 			});

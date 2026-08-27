@@ -194,4 +194,16 @@ Als Nächstes:
 
 ## Version
 
-    0.2.2
+    0.2.4
+
+
+
+## HISTORY
+
+
+## 0.2.4
+
+- Product-Family-REST-Items über `rbf_site_core_product_family_rest_item` erweiterbar gemacht
+- Product-Family-Cards unterstützen externe Preview-Bilder
+- `product-families.js` rendert ein Preview-Bild, wenn `xr_preview_url` vorhanden ist
+- bestehender Placeholder bleibt als Fallback erhalten
