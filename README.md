@@ -194,11 +194,92 @@ Als Nächstes:
 
 ## Version
 
-    0.2.4
+    0.2.5
 
 
 
 ## HISTORY
+
+
+
+## 0.2.5
+
+### B2B Branding
+
+- Neue zentrale Branding-Komponente `RbfSiteCoreB2BBranding`.
+- Unterstützte Rollen:
+  - `shop_manager`
+  - `b2b_haendler`
+  - `b2b_vertrieb`
+- Firmenlogo pro B2B-User als WordPress-Attachment.
+- Unterstützte Logoformate:
+  - PNG
+  - WebP
+  - SVG
+- Maximale Logo-Dateigröße: 200 KB.
+- SVG-Dateien werden beim Upload serverseitig geprüft und sanitisiert.
+- Optionales Inline-Rendering von SVG-Logos.
+- Inline-SVG-Ausgabe wird nochmals strenger sanitisiert:
+  - `<script>` entfernt
+  - `<style>` entfernt
+  - `foreignObject`, `iframe`, `object`, `embed`, `audio`, `video` entfernt
+  - Eventhandler wie `onclick` / `onload` entfernt
+  - externe `href` / `xlink:href` entfernt
+  - `javascript:` / `vbscript:` entfernt
+
+### WordPress User Profile
+
+- B2B-Branding-Feld in WordPress-Benutzerprofilen.
+- Administratoren können Händlerlogos hochladen, ersetzen und entfernen.
+- Administratoren können für SVG-Logos optional Inline-Rendering aktivieren.
+- Logo wird als Attachment-ID im User-Meta gespeichert:
+  - `rbf_b2b_logo_id`
+  - `rbf_b2b_logo_inline`
+
+### WooCommerce My Account
+
+- Firmenlogo wird über WooCommerce-Hooks in `My Account → Account Details` integriert.
+- Kein WooCommerce-Template-Override notwendig.
+- B2B-User sehen ihr aktuelles Firmenlogo.
+- User mit Capability `rbf_can_access_b2b_admin` dürfen:
+  - Logo hochladen
+  - Logo ersetzen
+  - Logo entfernen
+- B2B-User ohne diese Capability sehen das Logo ausschließlich read-only.
+- Die bestehende Upload-/Validierungslogik wird für WP-Backend und My Account gemeinsam verwendet.
+
+### Globales SOMA Branding
+
+- Neue Admin-Seite:
+  - `Einstellungen → SOMA Branding`
+- Globales Standard-SOMA-Logo als WordPress-Attachment.
+- Unterstützt ebenfalls PNG, WebP und SVG bis maximal 200 KB.
+- Nutzt dieselbe zentrale Upload- und SVG-Sanitizing-Pipeline wie B2B-Logos.
+- Optionen:
+  - `rbf_site_logo_id`
+  - `rbf_site_logo_inline`
+- Administrator kann:
+  - Standardlogo hochladen
+  - Standardlogo ersetzen
+  - Standardlogo entfernen
+  - SVG-Inline-Rendering aktivieren
+
+### Branding API
+
+Neue zentrale Getter / Renderer für Theme und weitere Komponenten:
+
+- `RbfSiteCoreB2BBranding::get_logo_id()`
+- `RbfSiteCoreB2BBranding::get_logo_markup()`
+- `RbfSiteCoreB2BBranding::get_site_logo_id()`
+- `RbfSiteCoreB2BBranding::get_site_logo_markup()`
+- `RbfSiteCoreB2BBranding::get_effective_logo_id()`
+- `RbfSiteCoreB2BBranding::get_effective_logo_markup()`
+
+Logo-Priorität:
+
+1. eigenes B2B-Händlerlogo
+2. globales SOMA-Standardlogo
+3. kein Logo → Theme kann auf bisherigen Site Title zurückfallen
 
 
 ## 0.2.4

@@ -26,11 +26,15 @@ class RbfSiteCore {
 		require_once RBF_SITE_CORE_DIR . 'inc/class-rbf-site-core-rest.php';
 		require_once RBF_SITE_CORE_DIR . 'inc/class-rbf-site-core-shortcodes.php';
 
+		require_once RBF_SITE_CORE_DIR . 'inc/class-rbf-site-core-b2b-branding.php';
+
 		$this->init_hooks();
 
 		new RbfSiteCoreFamilyAdmin();
 		new RbfSiteCoreRest();
 		new RbfSiteCoreShortcodes();
+
+		new RbfSiteCoreB2BBranding();
 	}
 
 	private function init_hooks() {
