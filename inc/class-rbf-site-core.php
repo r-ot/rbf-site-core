@@ -27,6 +27,7 @@ class RbfSiteCore {
 		require_once RBF_SITE_CORE_DIR . 'inc/class-rbf-site-core-shortcodes.php';
 
 		require_once RBF_SITE_CORE_DIR . 'inc/class-rbf-site-core-b2b-branding.php';
+		require_once RBF_SITE_CORE_DIR . 'inc/class-rbf-site-core-cart.php';
 
 		$this->init_hooks();
 
@@ -35,6 +36,7 @@ class RbfSiteCore {
 		new RbfSiteCoreShortcodes();
 
 		new RbfSiteCoreB2BBranding();
+		new RbfSiteCoreCart();
 	}
 
 	private function init_hooks() {
