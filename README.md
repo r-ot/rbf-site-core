@@ -177,6 +177,34 @@ Als Nächstes:
 - Product Grid
 - wiederverwendbare Product Cards
 
+
+
+## Cart Item Notes
+
+`rbf-site-core` erweitert WooCommerce Cart Items um:
+
+    cart_item_note
+
+Der Wert wird:
+
+- über die WooCommerce Store API bereitgestellt
+- über `extensionCartUpdate()` aktualisiert
+- serverseitig mit `sanitize_textarea_field()` bereinigt
+- auf 400 Zeichen begrenzt
+- in der WooCommerce Session persistiert
+
+Frontend-Integration:
+
+    assets/js/cart-item-note.js
+
+Das Script ergänzt im WooCommerce Cart Block pro Position ein Notizfeld und
+synchronisiert Änderungen über den offiziellen Store-API-Update-Flow.
+
+Die Notiz ist Teil des laufenden Cart-Zustands und kann später von
+`rbf-shop-documents` in persistente Quote-Snapshots übernommen werden.
+
+
+
 ## Roadmap
 
 - [x] Product-Family Landingpage
@@ -194,12 +222,22 @@ Als Nächstes:
 
 ## Version
 
-    0.2.5
+    0.2.6
 
 
 
 ## HISTORY
 
+
+## 0.2.6
+
+- Added persistent `cart_item_note` support for WooCommerce Cart Blocks
+- Added Store API extension data for cart item notes
+- Added Store API update callback for cart item notes
+- Added server-side sanitization and 400 character limit
+- Added WooCommerce session persistence for cart item notes
+- Added functional Cart Block textarea integration
+- Added React-mount handling for asynchronous WooCommerce Cart rendering
 
 
 ## 0.2.5
