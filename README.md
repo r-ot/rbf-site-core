@@ -198,10 +198,17 @@ Frontend-Integration:
     assets/js/cart-item-note.js
 
 Das Script ergänzt im WooCommerce Cart Block pro Position ein Notizfeld und
-synchronisiert Änderungen über den offiziellen Store-API-Update-Flow.
+synchronisiert Änderungen über den Store-API-Update-Flow.
 
-Die Notiz ist Teil des laufenden Cart-Zustands und kann später von
-`rbf-shop-documents` in persistente Quote-Snapshots übernommen werden.
+Die Notiz ist Teil des laufenden Cart-Zustands und wird von
+`rbf-shop-documents` in den Quote-Contract übernommen.
+
+Im Quote-Snapshot bleibt sie positionsbezogen als:
+
+    cart_item_note
+
+erhalten und kann später beim Wiederherstellen eines gespeicherten Quotes wieder
+in das entsprechende WooCommerce Cart Item übernommen werden.
 
 
 
@@ -222,22 +229,34 @@ Die Notiz ist Teil des laufenden Cart-Zustands und kann später von
 
 ## Version
 
-    0.2.6
+    0.2.7
 
 
 
 ## HISTORY
 
 
+## 0.2.7
+
+### Fixed
+- Added a temporary WooCommerce 11.1.0 compatibility shim for cart pages where the WooCommerce Interactivity state may initialize without `restUrl`, causing requests to:
+  `undefinedwc/store/v1/cart`
+
+### Notes
+- The workaround is restricted to WooCommerce 11.1.0 and cart pages.
+- Remove the compatibility shim once WooCommerce ships an upstream fix.
+
+
+
+
 ## 0.2.6
 
 - Added persistent `cart_item_note` support for WooCommerce Cart Blocks
-- Added Store API extension data for cart item notes
-- Added Store API update callback for cart item notes
+- Added Store API extension data and update handling for cart item notes
 - Added server-side sanitization and 400 character limit
-- Added WooCommerce session persistence for cart item notes
-- Added functional Cart Block textarea integration
-- Added React-mount handling for asynchronous WooCommerce Cart rendering
+- Added WooCommerce session persistence
+- Added Cart Block textarea integration with asynchronous React mount handling
+- Prepared `cart_item_note` as a stable contract for `rbf-shop-documents` quote snapshots and later cart restore
 
 
 ## 0.2.5
